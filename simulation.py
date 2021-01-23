@@ -12,8 +12,8 @@ graph = nx.DiGraph()
 pos = {}
 labels = {}
 
-rows = 4
-columns = 4
+rows = 3
+columns = 3
 size = rows*columns
 
 def getNode(row, column):
@@ -38,15 +38,27 @@ for row in range(1, rows + 1):
 
 for row in range(1, rows + 1):
     for column in range(1, columns):
-       link_list.append(link.Link(uuid.uuid1(), getNode(row, column).id, getNode(row, column + 1).id, "Uplink"))
-       #print(getNode(row, column).id)
-    link_list.append(link.Link(uuid.uuid1(), getNode(row, columns).id, getNode(row, 1).id, "Uplink"))
+        if row % 2 == 1:
+            link_list.append(link.Link(uuid.uuid1(), getNode(row, column).id, getNode(row, column + 1).id, "Uplink"))
+        else:
+            link_list.append(link.Link(uuid.uuid1(), getNode(row, column + 1).id, getNode(row, column).id, "Uplink"))
+    if row % 2 == 1:
+        link_list.append(link.Link(uuid.uuid1(), getNode(row, columns).id, getNode(row, 1).id, "Uplink"))
+    else:
+        link_list.append(link.Link(uuid.uuid1(), getNode(row, 1).id, getNode(row, columns).id, "Uplink"))
+
+
 
 for column in range(1, columns + 1):
     for row in range(1, rows):
-       link_list.append(link.Link(uuid.uuid1(), getNode(row, column).id, getNode(row + 1, column).id, "Downlink"))
-       #print(getNode(row, column).id)
-    link_list.append(link.Link(uuid.uuid1(), getNode(rows, column).id, getNode(1, column).id, "Downlink"))
+        if column % 2 == 0:
+            link_list.append(link.Link(uuid.uuid1(), getNode(row, column).id, getNode(row + 1, column).id, "Downlink"))
+        else:
+            link_list.append(link.Link(uuid.uuid1(), getNode(row + 1, column).id, getNode(row, column).id, "Downlink"))
+    if column % 2 == 0:
+        link_list.append(link.Link(uuid.uuid1(), getNode(rows, column).id, getNode(1, column).id, "Downlink"))
+    else:
+        link_list.append(link.Link(uuid.uuid1(), getNode(1, column).id, getNode(rows, column).id, "Downlink"))
 
 
 
