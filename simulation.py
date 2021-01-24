@@ -1,9 +1,7 @@
 '''
-
 SOIB - Manhattan network simulator
-
+@redfr0g 2021
 '''
-
 import link
 import node
 import packet
@@ -15,11 +13,13 @@ import numpy as np
 import warnings
 import yaml
 
+# Open parameters file
 with open('parameters.yaml') as param_file:
     parameters = yaml.load(param_file, Loader=yaml.FullLoader)
 
 print("Initializing simulation with the following parameters: {}".format(parameters))
 
+# Assign parameters to variables
 rows = parameters['rows']
 columns = parameters['columns']
 size = rows*columns
@@ -30,10 +30,10 @@ buffer_size = parameters['buffer_size']
 simulation_time = parameters['simulation_time']
 routing_type = parameters['routing_type']
 debug = parameters['debug']
-
+# Ignore warning due to numpy issue
 warnings.filterwarnings("ignore")
 
-
+# Initialize empty variables
 node_list = []
 link_list = []
 
@@ -56,16 +56,19 @@ received_packets = 0
 dropped_packets = 0
 loss_rate = 0
 
+# Get node by row and column
 def getNode(row, column):
     for node in node_list:
         if node.id == "{}:{}".format(row,column):
             return node
 
+# Get node by id
 def getNodeById(id):
     for node in node_list:
         if node.id == id:
             return node
 
+# Get all links connected to node
 def getLinks(node):
 
     node_links = []
@@ -74,7 +77,8 @@ def getLinks(node):
            node_links.append(link)
     return node_links
 
-def getShortestPath(source, target, algorithm):
+# Get routing path for a packet depending on selected algorithm
+def getPacketPath(source, target, algorithm):
 
     if algorithm == "SHORTEST_PATH":
         return nx.shortest_path(graph, source=source, target=target)
@@ -84,6 +88,7 @@ def getShortestPath(source, target, algorithm):
     if algorithm == "RANDOM":
         return next(nx.all_simple_paths(graph, source=source, target=target))
 
+# Generate new packet
 def generatePacket(node, ttl):
     global sent_packets
     global total_packets
@@ -94,7 +99,7 @@ def generatePacket(node, ttl):
         destination_node = "{}:{}".format(r.randint(1,rows), r.randint(1, columns))
         if destination_node != node.id:
             break
-    route = getShortestPath(node.id, destination_node, routing_type)
+    route = getPacketPath(node.id, destination_node, routing_type)
 
     if len(node.buffer_out) >= node.buffer_max:
         if debug:
@@ -105,6 +110,7 @@ def generatePacket(node, ttl):
         total_packets += 1
     sent_packets += 1
 
+# Service packet in input and output buffers, drop packet if ttl expired or packet reached destination
 def transferPacket(node):
     global total_packets
     global received_packets
@@ -154,6 +160,7 @@ def transferPacket(node):
                 print("{} Packet {} sent to {}".format(node.id, node.buffer_out[0].id, node.buffer_out[0].route[0]))
             node.buffer_out.pop(0)
 
+# Decrease ttl value for all current packets
 def updateTTL(node):
     for packet in node.buffer_in:
         packet.ttl -= 1
@@ -161,7 +168,7 @@ def updateTTL(node):
     for packet in node.buffer_out:
         packet.ttl -= 1
 
-
+# Print network graph
 def printNetwork():
     plt.figure(1)
     nx.draw_networkx_nodes(graph, pos)
@@ -169,10 +176,12 @@ def printNetwork():
     nx.draw_networkx_edges(graph, pos, arrows=True, connectionstyle='arc3,rad=0.2')
     plt.show()
 
+# Generate nodes with id appropriate to their position
 for row in range(1, rows + 1):
     for column in range(1, columns + 1):
         node_list.append(node.Node("{}:{}".format(row, column), buffer_size))
 
+# Generate adequate horizontal links with alternating directions
 for row in range(1, rows + 1):
     for column in range(1, columns):
         if row % 2 == 1:
@@ -184,8 +193,7 @@ for row in range(1, rows + 1):
     else:
         link_list.append(link.Link(uuid.uuid1(), getNode(row, 1).id, getNode(row, columns).id))
 
-
-
+# Generate adequate vertical links with alternating directions
 for column in range(1, columns + 1):
     for row in range(1, rows):
         if column % 2 == 0:
@@ -204,27 +212,29 @@ for node in node_list:
     pos[node.id] = (int(node_position[1]) * 100, int(node_position[0]) * -100)
     labels[node.id] = node.id
 
+# Add links to graph
 for link in link_list:
     graph.add_edge(link.node_from_id, link.node_to_id)
 
-#generatePacket(getNode(1,1), 5)
-#print(getNode(1,1).buffer_out[0].node_from, getNode(1,1).buffer_out[0].node_to, getNode(1,1).buffer_out[0].route)
-
-
+# Run simulation until simulation time is reached
 while tick < simulation_time:
     if debug:
         print("Total packets in network {}".format(total_packets))
         print("Packet loss rate: {} %".format(round(loss_rate, 2)))
-
+    # Print simulation progress
     print(f"Simulation completion: {int(round((tick / simulation_time) * 100))} %", end='\r')
 
     for node in node_list:
+        # Generate packets based on poisson distribution
         for i in range(0, np.random.poisson(packet_rate)):
             generatePacket(node, ttl)
             total_packets += 1
+        # Service packets in all nodes
         transferPacket(node)
+        # Update ttl values
         updateTTL(node)
 
+    # Calculate output values
     try:
         loss_rate = dropped_packets / sent_packets * 100
     except(ZeroDivisionError):
@@ -248,14 +258,17 @@ while tick < simulation_time:
     except(ZeroDivisionError):
         delay_variance.append(0)
 
+    # Increase simulation time
     tick += 1
 
+# Print output values
 print()
 print("Packet loss rate: {} %".format(round(loss_array[-1], 2)))
 print("Mean hop count: {} hops".format(round(mean_hop_array[-1], 2)))
 print("Mean packet delay: {} ticks".format(round(mean_delay_array[-1], 2)))
 print("Packet delay variance: {} ticks".format(round(delay_variance[-1],2 )))
 
+# Plot graph and output values
 printNetwork()
 
 plt.figure(2)
