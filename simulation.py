@@ -1,9 +1,6 @@
 '''
-SOIB - Manhattan network simulator
 
-TODO
-- calculate output parameters and plot them
-- add packet visualisation
+SOIB - Manhattan network simulator
 
 '''
 
@@ -15,7 +12,27 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import random as r
 import numpy as np
-import time
+import warnings
+import yaml
+
+with open('parameters.yaml') as param_file:
+    parameters = yaml.load(param_file, Loader=yaml.FullLoader)
+
+print("Initializing simulation with the following parameters: {}".format(parameters))
+
+rows = parameters['rows']
+columns = parameters['columns']
+size = rows*columns
+r.seed(parameters['seed'])
+ttl = parameters['ttl']
+packet_rate = parameters['packet_rate']
+buffer_size = parameters['buffer_size']
+simulation_time = parameters['simulation_time']
+routing_type = parameters['routing_type']
+debug = parameters['debug']
+
+warnings.filterwarnings("ignore")
+
 
 node_list = []
 link_list = []
@@ -24,13 +41,6 @@ graph = nx.DiGraph()
 pos = {}
 labels = {}
 
-ttl = 5
-packet_rate = 0.3
-buffer_size = 10
-simulation_time = 1000
-# type of routing algoritm used: SHORTEST_PATH, LONGEST_PATH, RANDOM,
-routing_type = "SHORTEST_PATH"
-
 tick = 0
 simulation_ticks = []
 loss_array = []
@@ -38,18 +48,13 @@ hop_array = []
 mean_hop_array = []
 delay_array = []
 mean_delay_array = []
+delay_variance = []
 
 total_packets = 0
 sent_packets = 0
 received_packets = 0
 dropped_packets = 0
 loss_rate = 0
-
-
-rows = 3
-columns = 3
-size = rows*columns
-
 
 def getNode(row, column):
     for node in node_list:
@@ -92,7 +97,8 @@ def generatePacket(node, ttl):
     route = getShortestPath(node.id, destination_node, routing_type)
 
     if len(node.buffer_out) >= node.buffer_max:
-        print("Packet {} dropped due to full buffer".format(uuid.uuid4()))
+        if debug:
+            print("Packet {} dropped due to full buffer".format(uuid.uuid4()))
         dropped_packets += 1
     else:
         node.buffer_out.append(packet.Packet(uuid.uuid4(), node.id, destination_node, route, ttl, tick))
@@ -107,7 +113,8 @@ def transferPacket(node):
 
     if node.buffer_in:
         while node.buffer_in[0].ttl <= 0:
-            print("Packet {} dropped due to expired TTL".format(node.buffer_in[0].id))
+            if debug:
+                print("Packet {} dropped due to expired TTL".format(node.buffer_in[0].id))
             hop_array.append(node.buffer_in[0].hop)
             node.buffer_in.pop(0)
             total_packets -= 1
@@ -117,7 +124,8 @@ def transferPacket(node):
 
     if node.buffer_in:
         if node.buffer_in[0].node_to == node.id:
-            print("Packet {} received by {}".format(node.buffer_in[0].id, node.id))
+            if debug:
+                print("Packet {} received by {}".format(node.buffer_in[0].id, node.id))
             hop_array.append(node.buffer_in[0].hop)
             delay_array.append(tick - node.buffer_in[0].sent_time)
             node.buffer_in.pop(0)
@@ -130,15 +138,20 @@ def transferPacket(node):
     if node.buffer_out:
         node.buffer_out[0].route.pop(0)
         if len(getNodeById(node.buffer_out[0].route[0]).buffer_in) >= node.buffer_max:
-            print("Packet {} dropped due to full buffer".format(node.buffer_out[0].id))
-            hop_array.append(node.buffer_in[0].hop)
+            if debug:
+                print("Packet {} dropped due to full buffer".format(node.buffer_out[0].id))
+            try:
+                hop_array.append(node.buffer_in[0].hop)
+            except(IndexError):
+                hop_array.append(0)
             dropped_packets += 1
             total_packets -= 1
             node.buffer_out.pop(0)
         else:
             node.buffer_out[0].hop += 1
             getNodeById(node.buffer_out[0].route[0]).buffer_in.append(node.buffer_out[0])
-            #print("{} Packet {} sent to {}".format(node.id, node.buffer_out[0].id, node.buffer_out[0].route[0]))
+            if debug:
+                print("{} Packet {} sent to {}".format(node.id, node.buffer_out[0].id, node.buffer_out[0].route[0]))
             node.buffer_out.pop(0)
 
 def updateTTL(node):
@@ -150,6 +163,7 @@ def updateTTL(node):
 
 
 def printNetwork():
+    plt.figure(1)
     nx.draw_networkx_nodes(graph, pos)
     nx.draw_networkx_labels(graph, pos, labels)
     nx.draw_networkx_edges(graph, pos, arrows=True, connectionstyle='arc3,rad=0.2')
@@ -198,8 +212,11 @@ for link in link_list:
 
 
 while tick < simulation_time:
-    print("Total packets in network {}".format(total_packets))
-    print("Packet loss rate: {} %".format(round(loss_rate, 2)))
+    if debug:
+        print("Total packets in network {}".format(total_packets))
+        print("Packet loss rate: {} %".format(round(loss_rate, 2)))
+
+    print(f"Simulation completion: {int(round((tick / simulation_time) * 100))} %", end='\r')
 
     for node in node_list:
         for i in range(0, np.random.poisson(packet_rate)):
@@ -225,18 +242,35 @@ while tick < simulation_time:
         mean_delay_array.append(sum(delay_array) / len(delay_array))
     except(ZeroDivisionError):
         mean_delay_array.append(0)
-    #time.sleep(1)
+
+    try:
+        delay_variance.append(np.var(delay_array))
+    except(ZeroDivisionError):
+        delay_variance.append(0)
+
     tick += 1
 
+print()
+print("Packet loss rate: {} %".format(round(loss_array[-1], 2)))
+print("Mean hop count: {} hops".format(round(mean_hop_array[-1], 2)))
+print("Mean packet delay: {} ticks".format(round(mean_delay_array[-1], 2)))
+print("Packet delay variance: {} ticks".format(round(delay_variance[-1],2 )))
 
-# printNetwork()
-# plt.show()
+printNetwork()
 
-plt.plot(simulation_ticks, loss_array)
-plt.show()
+plt.figure(2)
+plt.plot(simulation_ticks, loss_array, color="red")
+plt.title("Packet loss rate [%]")
 
-plt.plot(simulation_ticks, mean_hop_array)
-plt.show()
+plt.figure(3)
+plt.plot(simulation_ticks, mean_hop_array, color="green")
+plt.title("Mean hop count [hop]")
 
-plt.plot(simulation_ticks, mean_delay_array)
+plt.figure(4)
+plt.plot(simulation_ticks, mean_delay_array, color="blue")
+plt.title("Mean packet delay [ticks]")
+
+plt.figure(5)
+plt.plot(simulation_ticks, delay_variance, color="cyan")
+plt.title("Packet delay variance [ticks]")
 plt.show()

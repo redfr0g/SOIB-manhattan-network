@@ -1,0 +1,11 @@
+# Simulation input parameter file
+
+rows: 4                           # Number of network rows (final network is of size rows * columns)
+columns: 4                        # Number of network columns
+seed: 1337                        # Random seed
+ttl: 10                            # Time-to-live value
+packet_rate: 0.3                  # Lambda value used in Poisson packet generation
+buffer_size: 10                   # Size of input and output buffer
+simulation_time: 5000             # Packet time limit
+routing_type: "SHORTEST_PATH"     # Type of routing algorithm used: SHORTEST_PATH, LONGEST_PATH, RANDOM,
+debug: False                      # Debug flag if more output is needed
