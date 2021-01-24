@@ -1,6 +1,6 @@
 class Packet:
-    def __init__(self, uuid, node_from, node_to, route, ttl):
-        self.uuid = uuid
+    def __init__(self, id, node_from, node_to, route, ttl):
+        self.id = id
         self.node_from = node_from
         self.node_to = node_to
         self.route = route
