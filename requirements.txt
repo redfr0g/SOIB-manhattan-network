@@ -1,0 +1,4 @@
+networkx==2.5
+matplotlib==3.3.3
+numpy==1.19.5
+PyYAML==5.4.1
