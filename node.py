@@ -1,6 +1,6 @@
 class Node:
-    def __init__(self, id):
+    def __init__(self, id, buffer_size):
         self.id = id
         self.buffer_in = []
         self.buffer_out = []
-        self.buffer_max = 10
+        self.buffer_max = buffer_size
